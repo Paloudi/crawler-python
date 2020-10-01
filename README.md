@@ -11,3 +11,5 @@ optional arguments:
   --url URL, -u URL  The URL to crawl
   --depth N, -d N    Indicate the depth of the crawling (default: 3)
   --same-domain, -s  Restrain the crawler to the current domain
+
+This project will not be maintened because this is a one shot one but there is still work do to like downloading css, images, videos, scripts,...
