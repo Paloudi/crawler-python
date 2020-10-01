@@ -6,13 +6,16 @@ from urllib.error import HTTPError, URLError
 import urllib.parse
 from urllib.parse import urlparse
 
-from multiprocessing import Process, Pool, Queue, cpu_count, Value
-import os, signal
+
+from multiprocessing import Process, Pool, Queue, cpu_count, Value, log_to_stderr
+import os, signal, logging
 
 from utils import relToAbsURL, bcolors, domainName
 from Parser import Parser
 from Writer import Writer
 from time import sleep
+
+mp1 = log_to_stderr(logging.INFO)
 
 class CrawlerMaster:
     """
@@ -36,7 +39,7 @@ class CrawlerMaster:
         while self.crawlerQueue.qsize() != 0:
             processes = []
             while len(processes) <= cpu_count() and self.crawlerQueue.qsize() > 0:
-                 processes.append(Process(target=Crawler, args=(self.crawlerQueue, self.domainName, self.numPages)))
+                processes.append(Process(target=Crawler, args=(self.crawlerQueue, self.domainName, self.numPages)))
             for p in processes:
                 p.start()
             for p in processes:
@@ -88,15 +91,16 @@ class Crawler:
         except URLError as e:
             print(f"{bcolors.FAIL}ERROR: " + str(e) + f"{bcolors.ENDC}")
 
-        exit(0)
+        print("Crawler n°" + str(self.pid) + " stopping his job...")
 
     def unpackTuple(self):
-        tupleURLDepth = self.crawlerQueue.get()
+        tupleURLDepth = self.crawlerQueue.get(False)
         self.URL = tupleURLDepth[0]
         self.depth = tupleURLDepth[1]
 
     def writeToFile(self):
-        writer = Writer(self.URL, self.html)
+        pass
+        # writer = Writer(self.URL, self.html)
 
     def printInfos(self):
         print(f"{bcolors.HEADER}Crawler working on " + self.URL + f"{bcolors.ENDC}")
@@ -114,7 +118,7 @@ class Crawler:
         elif self.depth == 0 and self.crawlerQueue.qsize() >= 0:
             newDepth = self.depth
         else:
-            print(f"{bcolors.FAIL}Crawler n°" + str(self.pid) + " lost, we shouldn't be here! {bcolors.ENDC}")
+            print(f"{bcolors.FAIL}Crawler n°" + str(self.pid) + " lost, we shouldn't be here!"+f"{bcolors.ENDC}")
             exit(-1)
         if not self.URL in Crawler.alreadyParsed:
             Crawler.alreadyParsed.add(self.URL)
@@ -126,7 +130,8 @@ class Crawler:
                     else:
                         print(f"{bcolors.OKGREEN}Crawler n°" + str(self.pid) + " adding " + str(absLink) + f"{bcolors.ENDC}")
                         newTuple = (absLink, newDepth)
-                        self.crawlerQueue.put(newTuple)
+                        self.crawlerQueue.put(newTuple, False)
+                        print("Queue size : " + str(self.crawlerQueue.qsize()))
                 else:
                     print(f"{bcolors.WARNING}Crawler n°" + str(self.pid) + " skipping " + absLink + f"{bcolors.ENDC} (same-domain policy)")
                 # sleep(0.1)
@@ -136,7 +141,7 @@ class Crawler:
         Open an URL
         """
         try:
-            request = urlopen(self.URL, timeout=5)
+            request = urlopen(self.URL, timeout=2)
         except UnicodeEncodeError:
             iri = self.URL
             iriSplit = iri.split('//')
